@@ -1,0 +1,77 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+parameters:
+- name: LAMBDA_NAME
+  displayName: 'Pleae select the lambda name ?'
+  type: string
+  default: 'Darin'
+  values:
+  - Darin
+  - John
+  - Jane
+  - Bob
+- name: DEPLOY_DEV
+  displayName: 'Deploy to Dev? (YES/NO)'
+  type: string
+  default: 'NO'
+  values:
+  - YES
+  - NO
+- name: DEPLOY_PROD
+  displayName: 'Deploy to PROD? (YES/NO)'
+  type: string
+  default: 'NO'
+  values:
+  - YES
+  - NO
+
+stages:
+- stage: Build
+  displayName: 'Build'
+  jobs:
+  - job: Build
+    displayName: 'Building the code'
+    steps:
+    - script: |
+        echo Building the code.......
+      displayName: 'Build'
+
+- stage: Hello
+  displayName: 'Hello'
+  jobs:
+  - job: Hello
+    displayName: 'Hello'
+    steps:
+    - script: |
+        echo "Hello ${{ parameters.LAMBDA_NAME }}"
+      displayName: 'Say Hello'
+
+- stage: Deploying_to_Dev
+  displayName: 'Deploying to Dev'
+  dependsOn: Hello
+  condition: eq('${{ parameters.DEPLOY_DEV }}', 'YES')
+  jobs:
+  - job: Deploy_to_Dev
+    displayName: 'Deploying to Dev'
+    steps:
+    - script: |
+        echo "Deploying in Dev ${{ parameters.DEPLOY_DEV }}"
+        echo "Deployment to Dev is successful!"
+      displayName: 'Deploy to Dev'
+
+- stage: Deploying_to_Production
+  displayName: 'Deploying to Production'
+  dependsOn: Deploying_to_Dev
+  condition: eq('${{ parameters.DEPLOY_PROD }}', 'YES')
+  jobs:
+  - job: Deploy_to_Production
+    displayName: 'Deploying to Production'
+    steps:
+    - script: |
+        echo "Deploying in Production ${{ parameters.DEPLOY_PROD }}"
+        echo "Deployment to Production is successful!"
+      displayName: 'Deploy to Production'
