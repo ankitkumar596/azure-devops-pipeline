@@ -61,7 +61,7 @@ stages:
         downloadPath: '$(System.DefaultWorkingDirectory)/Artifacts'
 
     - script: |
-        aws s3 cp /home/lenevo/myagent/_work/1/s/Artifacts/lambda-zip/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
+        aws s3 cp $(System.DefaultWorkingDirectory)/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
       displayName: 'Push code to S3 bucket'
     - script: |
         aws lambda update-function-code --function-name ${{ parameters.DEV_CLIENT_NAME }}_lambda_function --s3-bucket darin-pop-bucket --s3-key devcode/dev_lambda_function.zip --region ap-south-1
@@ -83,7 +83,7 @@ stages:
         downloadPath: '$(System.DefaultWorkingDirectory)/Artifacts'
 
     - script: |
-        aws s3 cp /home/lenevo/myagent/_work/1/s/Artifacts/lambda-zip/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
+        aws s3 cp $(System.DefaultWorkingDirectory)/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
         function_names=$(aws lambda list-functions --query 'Functions[*].FunctionName' --output text)
         for function_name in $function_names; do
           echo "Updating code for Lambda function: $function_name"
