@@ -1,11 +1,11 @@
 trigger:
-- dev
+- prod
 
 pool:
   name: Default
 
 parameters:
-- name: DEPLOY_DEV
+- name: DEPLOY_PORD
   displayName: 'Deploy to Dev? (YES/NO)'
   type: string
   default: 'NO'
@@ -23,25 +23,26 @@ parameters:
 - name: G1_CLIENTS
   displayName: 'G1 Clients (comma-separated)'
   type: string
-  default: 'client1,client2,client3' # Update with your G1 client names
+  default: 'dev,demo1' # Update with your G1 client names
 - name: G2_CLIENTS
   displayName: 'G2 Clients (comma-separated)'
   type: string
-  default: 'client4,client5,client6' # Update with your G2 client names
+  default: 'demo2,demo3' # Update with your G2 client names
 
 stages:
 - stage: Build
   displayName: 'Build'
-  condition: eq('${{ parameters.DEPLOY_DEV }}', 'YES')
   jobs:
     - job: Build
       displayName: 'Building the code'
       steps:
       - checkout: self  
       - script: |
-          # Your build script here
+          pwd
+          pip install -r requirements.txt
+          zip -r $(System.DefaultWorkingDirectory)/dev_lambda_function.zip .
         displayName: 'Build and create zip file'
-
+        
       - task: PublishBuildArtifacts@1
         displayName: 'Publish Artifact: lambda-zip'
         inputs:
@@ -50,37 +51,47 @@ stages:
 
 - stage: Deploy_to_G1
   displayName: 'Deploy to G1'
-  condition: and(eq('${{ parameters.DEPLOY_DEV }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'G1'))
+  condition: and(eq('${{ parameters.DEPLOY_PORD }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'G1'))
   dependsOn: Build
   jobs:
     - job: Deploy_to_G1
       displayName: 'Deploying to G1'
       steps:
+      - checkout: none
       - script: |
-          for client in $(echo $G1_CLIENTS | tr ',' '\n'); do
-            # Your deployment script for each G1 client here, use $client as the client name
+          aws s3 cp $(System.DefaultWorkingDirectory)/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
+        displayName: 'Push code to S3 bucket'
+      - script: |
+          for client in $(echo ${{ parameters.G1_CLIENTS }} | tr ',' '\n'); do
             echo "Deploying to G1 client: $client"
+            lambda_function_name="${client}_lambda_function"
+            aws lambda update-function-code --function-name $lambda_function_name --s3-bucket darin-pop-bucket --s3-key devcode/dev_lambda_function.zip --region ap-south-1
           done
         displayName: 'Deploying to G1'
 
 - stage: Deploy_to_G2
   displayName: 'Deploy to G2'
-  condition: and(eq('${{ parameters.DEPLOY_DEV }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'G2'))
+  condition: and(eq('${{ parameters.DEPLOY_PORD }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'G2'))
   dependsOn: Build
   jobs:
     - job: Deploy_to_G2
       displayName: 'Deploying to G2'
       steps:
+      - checkout: none
       - script: |
-          for client in $(echo $G2_CLIENTS | tr ',' '\n'); do
-            # Your deployment script for each G2 client here, use $client as the client name
+          aws s3 cp $(System.DefaultWorkingDirectory)/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
+        displayName: 'Push code to S3 bucket'
+      - script: |
+          for client in $(echo ${{ parameters.G2_CLIENTS }} | tr ',' '\n'); do
             echo "Deploying to G2 client: $client"
+            lambda_function_name="${client}_lambda_function"
+            aws lambda update-function-code --function-name $lambda_function_name --s3-bucket darin-pop-bucket --s3-key devcode/dev_lambda_function.zip --region ap-south-1
           done
         displayName: 'Deploying to G2'
 
 - stage: Deploy_to_BOTH
   displayName: 'Deploy to Both G1 and G2'
-  condition: and(eq('${{ parameters.DEPLOY_DEV }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'Both'))
+  condition: and(eq('${{ parameters.DEPLOY_PORD }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'Both'))
   dependsOn: 
   - Deploy_to_G1
   - Deploy_to_G2
@@ -88,14 +99,14 @@ stages:
     - job: Deploy_to_BOTH
       displayName: 'Deploying to Both G1 and G2'
       steps:
+      - checkout: none
       - script: |
-          for client in $(echo $G1_CLIENTS | tr ',' '\n'); do
-            # Your deployment script for each G1 client here, use $client as the client name
-            echo "Deploying to G1 client: $client"
+          aws s3 cp $(System.DefaultWorkingDirectory)/dev_lambda_function.zip s3://darin-pop-bucket/devcode/
+        displayName: 'Push code to S3 bucket'
+      - script: |
+          for client in $(echo ${{ parameters.G1_CLIENTS }} ${{ parameters.G2_CLIENTS }} | tr ',' ' '); do
+            echo "Deploying to client: $client"
+            lambda_function_name="${client}_lambda_function"
+            aws lambda update-function-code --function-name $lambda_function_name --s3-bucket darin-pop-bucket --s3-key devcode/dev_lambda_function.zip --region ap-south-1
           done
-
-          for client in $(echo $G2_CLIENTS | tr ',' '\n'); do
-            # Your deployment script for each G2 client here, use $client as the client name
-            echo "Deploying to G2 client: $client"
-          done
-        displayName: 'Deploying to Both G1 and G2'
+        displayName: 'Deploying to G1 and G2'
