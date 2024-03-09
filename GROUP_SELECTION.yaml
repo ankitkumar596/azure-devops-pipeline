@@ -1,0 +1,101 @@
+trigger:
+- dev
+
+pool:
+  name: Default
+
+parameters:
+- name: DEPLOY_DEV
+  displayName: 'Deploy to Dev? (YES/NO)'
+  type: string
+  default: 'NO'
+  values:
+  - NO
+  - YES
+- name: GROUP_SELECTION
+  displayName: 'Select Group'
+  type: string
+  default: 'G1'
+  values:
+  - G1
+  - G2
+  - Both
+- name: G1_CLIENTS
+  displayName: 'G1 Clients (comma-separated)'
+  type: string
+  default: 'client1,client2,client3' # Update with your G1 client names
+- name: G2_CLIENTS
+  displayName: 'G2 Clients (comma-separated)'
+  type: string
+  default: 'client4,client5,client6' # Update with your G2 client names
+
+stages:
+- stage: Build
+  displayName: 'Build'
+  condition: eq('${{ parameters.DEPLOY_DEV }}', 'YES')
+  jobs:
+    - job: Build
+      displayName: 'Building the code'
+      steps:
+      - checkout: self  
+      - script: |
+          # Your build script here
+        displayName: 'Build and create zip file'
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: lambda-zip'
+        inputs:
+          PathtoPublish: '$(System.DefaultWorkingDirectory)/dev_lambda_function.zip'
+          ArtifactName: 'lambda-zip'
+
+- stage: Deploy_to_G1
+  displayName: 'Deploy to G1'
+  condition: and(eq('${{ parameters.DEPLOY_DEV }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'G1'))
+  dependsOn: Build
+  jobs:
+    - job: Deploy_to_G1
+      displayName: 'Deploying to G1'
+      steps:
+      - script: |
+          for client in $(echo $G1_CLIENTS | tr ',' '\n'); do
+            # Your deployment script for each G1 client here, use $client as the client name
+            echo "Deploying to G1 client: $client"
+          done
+        displayName: 'Deploying to G1'
+
+- stage: Deploy_to_G2
+  displayName: 'Deploy to G2'
+  condition: and(eq('${{ parameters.DEPLOY_DEV }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'G2'))
+  dependsOn: Build
+  jobs:
+    - job: Deploy_to_G2
+      displayName: 'Deploying to G2'
+      steps:
+      - script: |
+          for client in $(echo $G2_CLIENTS | tr ',' '\n'); do
+            # Your deployment script for each G2 client here, use $client as the client name
+            echo "Deploying to G2 client: $client"
+          done
+        displayName: 'Deploying to G2'
+
+- stage: Deploy_to_BOTH
+  displayName: 'Deploy to Both G1 and G2'
+  condition: and(eq('${{ parameters.DEPLOY_DEV }}', 'YES'), eq('${{ parameters.GROUP_SELECTION }}', 'Both'))
+  dependsOn: 
+  - Deploy_to_G1
+  - Deploy_to_G2
+  jobs:
+    - job: Deploy_to_BOTH
+      displayName: 'Deploying to Both G1 and G2'
+      steps:
+      - script: |
+          for client in $(echo $G1_CLIENTS | tr ',' '\n'); do
+            # Your deployment script for each G1 client here, use $client as the client name
+            echo "Deploying to G1 client: $client"
+          done
+
+          for client in $(echo $G2_CLIENTS | tr ',' '\n'); do
+            # Your deployment script for each G2 client here, use $client as the client name
+            echo "Deploying to G2 client: $client"
+          done
+        displayName: 'Deploying to Both G1 and G2'
